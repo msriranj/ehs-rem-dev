@@ -1,0 +1,76 @@
+obr2
+!
+vlan 4021
+ name OBR1_OBR2_EHS_10.250.128.4/30
+!
+vlan 4025
+ name CCR1_OBR2_EHS_10.250.128.16/30
+!
+vlan 4026
+ name CCR2_OBR2_EHS_10.250.128.24/30
+!
+
+
+!
+interface {{obr2_ccr1}}
+ switchport trunk allowed vlan add 4025
+!
+interface {{obr2_ccr2}}
+ switchport trunk allowed vlan add 4026
+!
+interface Port-channel1
+ switchport trunk allowed vlan add 4021
+!
+!
+interface Vlan4021
+ description OBR1_OBR2_EHS_P2P_10.250.128.4/30
+ vrf forwarding ehs
+ ip address 10.250.128.6 255.255.255.252
+ no ip redirects
+ ip route-cache same-interface
+shut
+!
+interface Vlan4025
+ description   CCR1_OBR2_EHS_P2P_10.250.128.16/30
+ vrf forwarding ehs
+ ip address 10.250.128.17 255.255.255.252
+ no ip redirects
+ ip route-cache same-interface
+ bfd interval 100 min_rx 100 multiplier 3
+ no bfd echo
+shut
+!
+interface Vlan4026
+ description   CCR2_OBR2_EHS_P2P_10.250.128.24/30
+ vrf forwarding ehs
+ ip address 10.250.128.25 255.255.255.252
+ no ip redirects
+ ip route-cache same-interface
+ bfd interval 100 min_rx 100 multiplier 3
+ no bfd echo
+shut
+!
+
+router bgp {{obr2_asn}}
+ address-family ipv4 vrf ehs
+ neighbor 10.250.128.18 remote-as {{ccr1_asn}}
+ neighbor 10.250.128.18 update-source Vlan 4025
+ neighbor 10.250.128.18 fall-over bfd
+ neighbor 10.250.128.18 activate
+ neighbor 10.250.128.18 weight 65535
+ 
+ neighbor 10.250.128.26 remote-as {{ccr2_asn}}
+ neighbor 10.250.128.26 update-source Vlan 4026
+ neighbor 10.250.128.26 fall-over bfd
+ neighbor 10.250.128.26 activate
+ neighbor 10.250.128.26 weight 65535
+ 
+ neighbor 10.250.128.5 remote-as {{obr1_asn}}
+ neighbor 10.250.128.5 update-source Vlan 4021
+ neighbor 10.250.128.5 fall-over bfd
+ neighbor 10.250.128.5 activate
+ neighbor 10.250.128.5 weight 65535
+maximum-paths 2
+ 
+ exit-address-family
+ !

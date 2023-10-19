@@ -1,0 +1,83 @@
+!
+vlan 4024
+ name CCR2_OBR1_EHS_10.250.128.20/30
+!
+vlan 4026
+ name CCR2_OBR2_EHS_10.250.128.24/30
+!
+
+!
+interface {{ccr2_obr1}}
+ switchport trunk allowed vlan add 4024
+!
+interface {{ccr2_obr2}}
+ switchport trunk allowed vlan add 4026
+!
+
+!
+interface Vlan4024
+ description   CCR2_OBR1_EHS_P2P_10.250.128.20/30
+ ip vrf forwarding ehs
+ ip address 10.250.128.22 255.255.255.252
+ no ip redirects
+ ip route-cache same-interface
+ bfd interval 100 min_rx 100 multiplier 3
+ no bfd echo
+shut
+!
+interface Vlan4026
+ description   CCR2_OBR2_EHS_P2P_10.250.128.24/30
+ ip vrf forwarding ehs
+ ip address 10.250.128.26 255.255.255.252
+ no ip redirects
+ ip route-cache same-interface
+ bfd interval 100 min_rx 100 multiplier 3
+ no bfd echo
+shut
+!
+!
+ip vrf ehs
+rd 1:4105
+ route-target export 1:4105
+ route-target import 1:4105
+!
+
+
+
+!
+router bgp {{ccr2_asn}}
+ address-family ipv4 vrf ehs
+ network 0.0.0.0
+ neighbor 10.250.128.21 remote-as {{obr1_asn}}
+ neighbor 10.250.128.21 update-source Vlan 4024
+ neighbor 10.250.128.21 fall-over bfd
+ neighbor 10.250.128.25 remote-as {{obr2_asn}}
+ neighbor 10.250.128.25 update-source Vlan 4026
+ neighbor 10.250.128.25 fall-over bfd
+ !
+ neighbor 10.250.128.21 activate
+ neighbor 10.250.128.21 weight 65535
+ neighbor 10.250.128.25 activate
+ neighbor 10.250.128.25 weight 65535
+maximum-paths 2
+ exit-address-family
+ !
+
+{% if prefix_flag %}
+!
+ip prefix-list DENY-DEFAULT-ROUTE seq 10 permit 0.0.0.0/0
+ip prefix-list DENY-DEFAULT-ROUTE seq 20 permit 10.250.0.0/16
+!
+{% endif %}
+!
+{% if route_map_flag %}
+route-map DENY-DEFAULT-ROUTE deny 10 
+ match ip address prefix-list DENY-DEFAULT-ROUTE
+route-map DENY-DEFAULT-ROUTE permit 20
+!
+!
+router ospf 10002 vrf ehs
+redistribute bgp {{ccr2_asn}}  route-map DENY-DEFAULT-ROUTE
+!
+{% endif %}
+
